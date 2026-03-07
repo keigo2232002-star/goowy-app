@@ -1,6 +1,6 @@
 {
-  "name": "福ねぎ出荷数量計算システム",
-  "short_name": "福ねぎ出荷",
+  "name": "goowy",
+  "short_name": "goowy",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
