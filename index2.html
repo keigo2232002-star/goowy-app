@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ミニマルカレンダー</title>
+
+<!-- Firebase v8 互換 CDN -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<style>
+  body {
+    font-family: "Yu Gothic", sans-serif;
+    background: #ffeef4;
+    margin: 20px;
+    color: #333;
+  }
+  .calendar {
+    max-width: 360px;
+    margin: auto;
+    background: #fff0f6;
+    padding: 15px;
+    border-radius: 12px;
+  }
+  #monthHeader {
+    display: flex;
+    justify-content: space-between;
+    font-size: 22px;
+    margin-bottom: 10px;
+    color: #d63384;
+  }
+  #weekdayHeader {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: #c2255c;
+  }
+  #calendarGrid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .day {
+    padding: 12px 0;
+    text-align: center;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .day:hover {
+    background: #ffd6e8;
+  }
+  .selected {
+    border: 2px solid #d63384;
+    border-radius: 50%;
+  }
+  .today {
+    background: #ffe3ec;
+    border-radius: 50%;
+  }
+  .sunday, .saturday {
+    color: #d63384 !important;
+  }
+  #rateBox {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 18px;
+    color: #d63384;
+    font-weight: bold;
+  }
+  #yearRateBox {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: #d63384;
+  }
+</style>
+</head>
+
+<body>
+<img src="goowy.png" alt="システムロゴ" style="width:100%; max-width:500px; display:block; margin:0 auto 20px;">
+
+<div class="calendar" id="calendarArea">
+  <div id="monthHeader">
+    <span id="prevMonth">←</span>
+    <span id="monthLabel"></span>
+    <span id="nextMonth">→</span>
+  </div>
+
+  <div id="weekdayHeader">
+    <div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div>
+  </div>
+
+  <div id="calendarGrid"></div>
+
+  <div id="rateBox">○数: 0 / 経過日数: 0日 / 実施率: 0%（3流）</div>
+
+  <div id="yearRateBox"></div>
+</div>
+
+<script>
+  // Firebase v8 互換初期化
+  var firebaseConfig = {
+    apiKey: "AIzaSyA-Bb1m_l3c2f_zC1CP1Z-BT5INRezX3E",
+    authDomain: "goowy-app-id.firebaseapp.com",
+    databaseURL: "https://goowy-app-id-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "goowy-app-id",
+    storageBucket: "goowy-app-id.appspot.com",
+    messagingSenderId: "636723257281",
+    appId: "1:636723257281:web:fe259098455a64b36d0940"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
+  var rootRef = db.ref("selectedDays");
+
+  var monthLabel = document.getElementById("monthLabel");
+  var calendarGrid = document.getElementById("calendarGrid");
+  var rateBox = document.getElementById("rateBox");
+  var yearRateBox = document.getElementById("yearRateBox");
+
+  var current = new Date();
+  var saved = {};
+
+  function getDaysFromJan1(year) {
+    var today = new Date();
+    if (today.getFullYear() !== year) return (year % 4 === 0) ? 366 : 365;
+    var start = new Date(year, 0, 1);
+    return Math.floor((today - start) / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  function updateYearRate() {
+    var years = {};
+    Object.keys(saved).forEach(function(date) {
+      var y = Number(date.split("-")[0]);
+      if (!years[y]) years[y] = 0;
+      years[y]++;
+    });
+
+    var html = "";
+    Object.keys(years).sort().forEach(function(y) {
+      var total = (y % 4 === 0) ? 366 : 365;
+      var rate = ((years[y] / total) * 100).toFixed(1);
+      html += y + "年　" + rate + "%<br>";
+    });
+
+    yearRateBox.innerHTML = html;
+  }
+
+  function updateRate() {
+    var year = new Date().getFullYear();
+    var selectedCount = Object.keys(saved).filter(function(d) {
+      return d.indexOf(String(year)) === 0;
+    }).length;
+    var days = getDaysFromJan1(year);
+    var rate = days > 0 ? ((selectedCount / days) * 100).toFixed(1) : "0.0";
+    var rank = (rate >= 30) ? "一流" : "3流";
+
+    rateBox.textContent = "○数: " + selectedCount + " / 経過日数: " + days + "日 / 実施率: " + rate + "%（" + rank + "）";
+  }
+
+  function renderCalendar() {
+    calendarGrid.innerHTML = "";
+    var year = current.getFullYear();
+    var month = current.getMonth();
+
+    monthLabel.textContent = year + " / " + (month + 1);
+
+    var firstDay = new Date(year, month, 1).getDay();
+    var lastDate = new Date(year, month + 1, 0).getDate();
+
+    for (var i = 0; i < firstDay; i++) {
+      calendarGrid.appendChild(document.createElement("div"));
+    }
+
+    var today = new Date();
+    var isThisMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    for (var d = 1; d <= lastDate; d++) {
+      var cell = document.createElement("div");
+      cell.textContent = d;
+      cell.classList.add("day");
+
+      var dateKey =
+        year +
+        "-" +
+        String(month + 1).padStart(2, "0") +
+        "-" +
+        String(d).padStart(2, "0");
+
+      if (isThisMonth && d === today.getDate()) {
+        cell.classList.add("today");
+      }
+
+      var weekday = new Date(year, month, d).getDay();
+      if (weekday === 0) cell.classList.add("sunday");
+      if (weekday === 6) cell.classList.add("saturday");
+
+      if (saved[dateKey]) {
+        cell.classList.add("selected");
+      }
+
+      (function(dateKeyCopy) {
+        cell.addEventListener("click", function() {
+          var dayRef = db.ref("selectedDays/" + dateKeyCopy);
+          if (saved[dateKeyCopy]) {
+            dayRef.set(null);
+          } else {
+            dayRef.set(true);
+          }
+        });
+      })(dateKey);
+
+      calendarGrid.appendChild(cell);
+    }
+  }
+
+  rootRef.on("value", function(snapshot) {
+    saved = snapshot.val() || {};
+    renderCalendar();
+    updateRate();
+    updateYearRate();
+  });
+
+  document.getElementById("prevMonth").onclick = function() {
+    current.setMonth(current.getMonth() - 1);
+    renderCalendar();
+  };
+
+  document.getElementById("nextMonth").onclick = function() {
+    current.setMonth(current.getMonth() + 1);
+    renderCalendar();
+  };
+</script>
+
+</body>
+</html>
