@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ミニマルカレンダー</title>
 
 <style>
@@ -77,8 +77,7 @@
 </head>
 
 <body>
-<img src="goowy.png" alt="システムロゴ"
-     style="width:100%; max-width:500px; display:block; margin:0 auto 20px;">
+<img src="goowy.png" alt="システムロゴ" style="width:100%; max-width:500px; display:block; margin:0 auto 20px;">
 
 <div class="calendar" id="calendarArea">
   <div id="monthHeader">
@@ -169,14 +168,12 @@
     const firstDay = new Date(year, month, 1).getDay();
     const lastDate = new Date(year, month + 1, 0).getDate();
 
-    // ★★★ ここが修正ポイント（firstDay に修正）★★★
     for (let i = 0; i < firstDay; i++) {
       calendarGrid.appendChild(document.createElement("div"));
     }
 
     const today = new Date();
-    const isThisMonth =
-      today.getFullYear() === year && today.getMonth() === month;
+    const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
 
     for (let d = 1; d <= lastDate; d++) {
       const cell = document.createElement("div");
