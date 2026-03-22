@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ミニマルカレンダー</title>
 
+<!-- Firebase v8 互換 CDN -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
 <style>
   body {
     font-family: "Yu Gothic", sans-serif;
@@ -97,11 +101,9 @@
   <div id="yearRateBox"></div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-  const firebaseConfig = {
+<script>
+  // Firebase v8 互換初期化
+  var firebaseConfig = {
     apiKey: "AIzaSyA-Bb1m_l3c2f_zC1CP1Z-BT5INRezX3E",
     authDomain: "goowy-app-id.firebaseapp.com",
     databaseURL: "https://goowy-app-id-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -110,83 +112,89 @@
     messagingSenderId: "636723257281",
     appId: "1:636723257281:web:fe259098455a64b36d0940"
   };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
+  var rootRef = db.ref("selectedDays");
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const rootRef = ref(db, "selectedDays");
+  var monthLabel = document.getElementById("monthLabel");
+  var calendarGrid = document.getElementById("calendarGrid");
+  var rateBox = document.getElementById("rateBox");
+  var yearRateBox = document.getElementById("yearRateBox");
 
-  const monthLabel = document.getElementById("monthLabel");
-  const calendarGrid = document.getElementById("calendarGrid");
-  const rateBox = document.getElementById("rateBox");
-  const yearRateBox = document.getElementById("yearRateBox");
-
-  let current = new Date();
-  let saved = {};
+  var current = new Date();
+  var saved = {};
 
   function getDaysFromJan1(year) {
-    const today = new Date();
+    var today = new Date();
     if (today.getFullYear() !== year) return (year % 4 === 0) ? 366 : 365;
-    const start = new Date(year, 0, 1);
+    var start = new Date(year, 0, 1);
     return Math.floor((today - start) / (1000 * 60 * 60 * 24)) + 1;
   }
 
   function updateYearRate() {
-    const years = {};
-    Object.keys(saved).forEach(date => {
-      const y = Number(date.split("-")[0]);
+    var years = {};
+    Object.keys(saved).forEach(function(date) {
+      var y = Number(date.split("-")[0]);
       if (!years[y]) years[y] = 0;
       years[y]++;
     });
 
-    let html = "";
-    Object.keys(years).sort().forEach(y => {
-      const total = (y % 4 === 0) ? 366 : 365;
-      const rate = ((years[y] / total) * 100).toFixed(1);
-      html += `${y}年　${rate}%<br>`;
+    var html = "";
+    Object.keys(years).sort().forEach(function(y) {
+      var total = (y % 4 === 0) ? 366 : 365;
+      var rate = ((years[y] / total) * 100).toFixed(1);
+      html += y + "年　" + rate + "%<br>";
     });
 
     yearRateBox.innerHTML = html;
   }
 
   function updateRate() {
-    const year = new Date().getFullYear();
-    const selectedCount = Object.keys(saved).filter(d => d.startsWith(String(year))).length;
-    const days = getDaysFromJan1(year);
-    const rate = days > 0 ? ((selectedCount / days) * 100).toFixed(1) : "0.0";
-    const rank = (rate >= 30) ? "一流" : "3流";
+    var year = new Date().getFullYear();
+    var selectedCount = Object.keys(saved).filter(function(d) {
+      return d.indexOf(String(year)) === 0;
+    }).length;
+    var days = getDaysFromJan1(year);
+    var rate = days > 0 ? ((selectedCount / days) * 100).toFixed(1) : "0.0";
+    var rank = (rate >= 30) ? "一流" : "3流";
 
-    rateBox.textContent = `○数: ${selectedCount} / 経過日数: ${days}日 / 実施率: ${rate}%（${rank}）`;
+    rateBox.textContent = "○数: " + selectedCount + " / 経過日数: " + days + "日 / 実施率: " + rate + "%（" + rank + "）";
   }
 
   function renderCalendar() {
     calendarGrid.innerHTML = "";
-    const year = current.getFullYear();
-    const month = current.getMonth();
+    var year = current.getFullYear();
+    var month = current.getMonth();
 
-    monthLabel.textContent = `${year} / ${month + 1}`;
+    monthLabel.textContent = year + " / " + (month + 1);
 
-    const firstDay = new Date(year, month, 1).getDay();
-    const lastDate = new Date(year, month + 1, 0).getDate();
+    var firstDay = new Date(year, month, 1).getDay();
+    var lastDate = new Date(year, month + 1, 0).getDate();
 
-    for (let i = 0; i < firstDay; i++) {
+    for (var i = 0; i < firstDay; i++) {
       calendarGrid.appendChild(document.createElement("div"));
     }
 
-    const today = new Date();
-    const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
+    var today = new Date();
+    var isThisMonth = today.getFullYear() === year && today.getMonth() === month;
 
-    for (let d = 1; d <= lastDate; d++) {
-      const cell = document.createElement("div");
+    for (var d = 1; d <= lastDate; d++) {
+      var cell = document.createElement("div");
       cell.textContent = d;
       cell.classList.add("day");
 
-      const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      var dateKey =
+        year +
+        "-" +
+        String(month + 1).padStart(2, "0") +
+        "-" +
+        String(d).padStart(2, "0");
 
       if (isThisMonth && d === today.getDate()) {
         cell.classList.add("today");
       }
 
-      const weekday = new Date(year, month, d).getDay();
+      var weekday = new Date(year, month, d).getDay();
       if (weekday === 0) cell.classList.add("sunday");
       if (weekday === 6) cell.classList.add("saturday");
 
@@ -194,32 +202,34 @@
         cell.classList.add("selected");
       }
 
-      cell.addEventListener("click", () => {
-        const dayRef = ref(db, "selectedDays/" + dateKey);
-        if (saved[dateKey]) {
-          set(dayRef, null);
-        } else {
-          set(dayRef, true);
-        }
-      });
+      (function(dateKeyCopy) {
+        cell.addEventListener("click", function() {
+          var dayRef = db.ref("selectedDays/" + dateKeyCopy);
+          if (saved[dateKeyCopy]) {
+            dayRef.set(null);
+          } else {
+            dayRef.set(true);
+          }
+        });
+      })(dateKey);
 
       calendarGrid.appendChild(cell);
     }
   }
 
-  onValue(rootRef, (snapshot) => {
+  rootRef.on("value", function(snapshot) {
     saved = snapshot.val() || {};
     renderCalendar();
     updateRate();
     updateYearRate();
   });
 
-  document.getElementById("prevMonth").onclick = () => {
+  document.getElementById("prevMonth").onclick = function() {
     current.setMonth(current.getMonth() - 1);
     renderCalendar();
   };
 
-  document.getElementById("nextMonth").onclick = () => {
+  document.getElementById("nextMonth").onclick = function() {
     current.setMonth(current.getMonth() + 1);
     renderCalendar();
   };
