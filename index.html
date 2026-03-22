@@ -1,13 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<link rel="manifest" href="manifest.json">
-<script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js");
-  }
-</script>
-
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ミニマルカレンダー</title>
@@ -19,7 +12,6 @@
     margin: 20px;
     color: #333;
   }
-
   .calendar {
     max-width: 360px;
     margin: auto;
@@ -27,7 +19,6 @@
     padding: 15px;
     border-radius: 12px;
   }
-
   #monthHeader {
     display: flex;
     justify-content: space-between;
@@ -35,7 +26,6 @@
     margin-bottom: 10px;
     color: #d63384;
   }
-
   #weekdayHeader {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -44,13 +34,11 @@
     font-size: 14px;
     color: #c2255c;
   }
-
   #calendarGrid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 4px;
   }
-
   .day {
     padding: 12px 0;
     text-align: center;
@@ -58,29 +46,20 @@
     cursor: pointer;
     font-size: 16px;
   }
-
   .day:hover {
     background: #ffd6e8;
   }
-
   .selected {
     border: 2px solid #d63384;
     border-radius: 50%;
   }
-
   .today {
     background: #ffe3ec;
     border-radius: 50%;
   }
-
-  .holiday, .saturday, .sunday {
+  .sunday, .saturday {
     color: #d63384 !important;
   }
-
-  .holiday {
-    background: #ffe3ec;
-  }
-
   #rateBox {
     margin-top: 15px;
     text-align: center;
@@ -88,11 +67,17 @@
     color: #d63384;
     font-weight: bold;
   }
+  #yearRateBox {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 16px;
+    color: #d63384;
+  }
 </style>
 </head>
 
 <body>
-<img src="goowy.png" alt="システムロゴ" 
+<img src="goowy.png" alt="システムロゴ"
      style="width:100%; max-width:500px; display:block; margin:0 auto 20px;">
 
 <div class="calendar" id="calendarArea">
@@ -108,51 +93,70 @@
 
   <div id="calendarGrid"></div>
 
-  <div id="rateBox">○数: 0 / 経過日数: 0日 / 実施率: 0%</div>
+  <div id="rateBox">○数: 0 / 経過日数: 0日 / 実施率: 0%（3流）</div>
+
+  <div id="yearRateBox"></div>
 </div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA-Bb1m_l3c2f_zC1CP1Z-BT5INRezX3E",
+    authDomain: "goowy-app-id.firebaseapp.com",
+    databaseURL: "https://goowy-app-id-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "goowy-app-id",
+    storageBucket: "goowy-app-id.appspot.com",
+    messagingSenderId: "636723257281",
+    appId: "1:636723257281:web:fe259098455a64b36d0940"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const rootRef = ref(db, "selectedDays");
+
   const monthLabel = document.getElementById("monthLabel");
   const calendarGrid = document.getElementById("calendarGrid");
   const rateBox = document.getElementById("rateBox");
+  const yearRateBox = document.getElementById("yearRateBox");
 
   let current = new Date();
+  let saved = {};
 
-  // 祝日データ（2026年）
-  const holidays = {
-    "2026-01-01": "元日",
-    "2026-01-12": "成人の日",
-    "2026-02-11": "建国記念の日",
-    "2026-02-23": "天皇誕生日",
-    "2026-03-20": "春分の日",
-    "2026-04-29": "昭和の日",
-    "2026-05-03": "憲法記念日",
-    "2026-05-04": "みどりの日",
-    "2026-05-05": "こどもの日",
-    "2026-07-20": "海の日",
-    "2026-08-11": "山の日",
-    "2026-09-21": "敬老の日",
-    "2026-09-22": "国民の休日",
-    "2026-09-23": "秋分の日",
-    "2026-10-12": "体育の日",
-    "2026-11-03": "文化の日",
-    "2026-11-23": "勤労感謝の日"
-  };
-
-  // localStorage 保存データ
-  let saved = JSON.parse(localStorage.getItem("selectedDays") || "{}");
-
-  function getDaysFromJan1() {
+  function getDaysFromJan1(year) {
     const today = new Date();
-    const start = new Date(today.getFullYear(), 0, 1);
+    if (today.getFullYear() !== year) return (year % 4 === 0) ? 366 : 365;
+    const start = new Date(year, 0, 1);
     return Math.floor((today - start) / (1000 * 60 * 60 * 24)) + 1;
   }
 
+  function updateYearRate() {
+    const years = {};
+    Object.keys(saved).forEach(date => {
+      const y = Number(date.split("-")[0]);
+      if (!years[y]) years[y] = 0;
+      years[y]++;
+    });
+
+    let html = "";
+    Object.keys(years).sort().forEach(y => {
+      const total = (y % 4 === 0) ? 366 : 365;
+      const rate = ((years[y] / total) * 100).toFixed(1);
+      html += `${y}年　${rate}%<br>`;
+    });
+
+    yearRateBox.innerHTML = html;
+  }
+
   function updateRate() {
-    const selectedCount = Object.keys(saved).length;
-    const days = getDaysFromJan1();
-    const rate = ((selectedCount / days) * 100).toFixed(1);
-    rateBox.textContent = `○数: ${selectedCount} / 経過日数: ${days}日 / 実施率: ${rate}%`;
+    const year = new Date().getFullYear();
+    const selectedCount = Object.keys(saved).filter(d => d.startsWith(String(year))).length;
+    const days = getDaysFromJan1(year);
+    const rate = days > 0 ? ((selectedCount / days) * 100).toFixed(1) : "0.0";
+    const rank = (rate >= 30) ? "一流" : "3流";
+
+    rateBox.textContent = `○数: ${selectedCount} / 経過日数: ${days}日 / 実施率: ${rate}%（${rank}）`;
   }
 
   function renderCalendar() {
@@ -165,6 +169,7 @@
     const firstDay = new Date(year, month, 1).getDay();
     const lastDate = new Date(year, month + 1, 0).getDate();
 
+    // ★★★ ここが修正ポイント（firstDay に修正）★★★
     for (let i = 0; i < firstDay; i++) {
       calendarGrid.appendChild(document.createElement("div"));
     }
@@ -180,44 +185,38 @@
 
       const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-      // 今日
       if (isThisMonth && d === today.getDate()) {
         cell.classList.add("today");
       }
 
-      // 土日
       const weekday = new Date(year, month, d).getDay();
       if (weekday === 0) cell.classList.add("sunday");
       if (weekday === 6) cell.classList.add("saturday");
 
-      // 祝日
-      if (holidays[dateKey]) {
-        cell.classList.add("holiday");
-      }
-
-      // 保存された○
       if (saved[dateKey]) {
         cell.classList.add("selected");
       }
 
-      // クリックで○トグル
       cell.addEventListener("click", () => {
+        const dayRef = ref(db, "selectedDays/" + dateKey);
         if (saved[dateKey]) {
-          delete saved[dateKey];
-          cell.classList.remove("selected");
+          set(dayRef, null);
         } else {
-          saved[dateKey] = true;
-          cell.classList.add("selected");
+          set(dayRef, true);
         }
-        localStorage.setItem("selectedDays", JSON.stringify(saved));
-        updateRate();
       });
 
       calendarGrid.appendChild(cell);
     }
   }
 
-  // 月移動
+  onValue(rootRef, (snapshot) => {
+    saved = snapshot.val() || {};
+    renderCalendar();
+    updateRate();
+    updateYearRate();
+  });
+
   document.getElementById("prevMonth").onclick = () => {
     current.setMonth(current.getMonth() - 1);
     renderCalendar();
@@ -227,30 +226,7 @@
     current.setMonth(current.getMonth() + 1);
     renderCalendar();
   };
-
-  // スワイプ操作
-  let startX = 0;
-  const area = document.getElementById("calendarArea");
-
-  area.addEventListener("touchstart", (e) => {
-    startX = e.touches[0].clientX;
-  });
-
-  area.addEventListener("touchend", (e) => {
-    const endX = e.changedTouches[0].clientX;
-    const diff = endX - startX;
-
-    if (diff > 50) {
-      current.setMonth(current.getMonth() - 1);
-      renderCalendar();
-    } else if (diff < -50) {
-      current.setMonth(current.getMonth() + 1);
-      renderCalendar();
-    }
-  });
-
-  renderCalendar();
-  updateRate();
 </script>
+
 </body>
 </html>
